@@ -6,10 +6,12 @@
 #include "main.h"
 
 #define LED PB0
-#define BUZZER PC5
+#define TRIGGER PC4
+#define ECHO PB1
 
 uint32_t ticks = 0;
-uint8_t distance = 0xFF;
+uint8_t distance_cm = 0xFF;
+uint8_t echo_delay[2] = {0xf1, 0xf2};
 
 int main()
 {
@@ -20,45 +22,79 @@ int main()
     DDRD |= 1 << PD0;
     DDRC |= 1 << BUZZER;
 
-    timer_interrupt_init();
     USART_Init();
+    //timer_interrupt_init();
+    Ultrasonic_init();
+    
     while (1)
     {
+        distance_cm = *((uint16_t*)echo_delay)/(58*2);
+        US_send_pulse();
+        _delay_ms(200);
+        if (distance_cm <= 50)
+        {
+            PORTB |= 1<<LED;
+            USART_Transmit(distance_cm);
+        }
+        else
+        {
+            PORTB &= ~(1<<LED);
+            USART_Transmit(0xFF);
+        }
+        
+        
     }
 }
 
-ISR(TIMER1_COMPA_vect)
+ISR(PCINT0_vect)
 {
-    if (distance != 0xFF)
+    // If rising edge.
+    if (PINB & 1<<ECHO)
     {
-        if ((ticks % (distance * 10)) == 0)
-        {
-            USART_Transmit(distance);  // TODO: remove.
-            PORTC ^= 1<<BUZZER;
-        }
-
-        if (ticks % 500 == 0)
-        {
-            PORTB ^= 1<<LED;
-        }
-        
+        // Start the timer.
+        TCCR1B |= 2;
     }
+    
+    // If falling edge.
     else
     {
-        PORTC &= ~(1<<BUZZER);
-        PORTB &= ~(1<<LED);
+        // Record the time then stop the counter.
+        *((uint16_t*)(echo_delay)) = TCNT1;
+        TCCR1B = 0;
+        TCNT1 = 0;
+
+        PCMSK1 &= ~(1<<PCINT11);    // Disable external interrupts.
+    }
+}
+
+void Ultrasonic_init()
+{
+    TCNT1 = 0;              // Make sure the timer is cleared.
+    DDRC |= 1 << TRIGGER;   // Trigger is output.
+    DDRB &= ~(1 << ECHO);   // Echo is input.
+    PCICR |= 1 << PCIE0;    // Enable external interrupt.
+    PCMSK0 |= 1<<PCINT1;   // Unmask Echo pin interrupts.
+}
+
+void US_send_pulse()
+{
+    // Send pulse.
+    PORTC &= ~(1<<TRIGGER);
+    for (uint16_t i = 0; i < 10; i++)
+    {
+        /* code */
     }
     
 
+    PORTC |= 1<<TRIGGER;
+    for (uint16_t i = 0; i < 40; i++)
+    {
+        /* code */
+    }
 
-    ticks++;
-}
+    PORTC &= ~(1<<TRIGGER);
 
-ISR(USART_RX_vect)
-{
-    cli();
-    USART_Receive();
-    sei();
+    
 }
 
 void USART_Init()
@@ -69,27 +105,6 @@ void USART_Init()
     UCSR0B = (1 << RXEN0) | (1 << TXEN0);
     /* Set frame format: 8data, 2stop bit */
     UCSR0C = (1 << USBS0) | (3 << UCSZ00);
-    // RX interrupts.
-    UCSR0B |= 1 << RXCIE0;
-}
-
-unsigned int USART_Receive(void)
-{
-    unsigned char status, resh, resl;
-    /* Wait for data to be received */
-    while (!(UCSR0A & (1 << RXC0)))
-        ;
-    /* Get status and 9th bit, then data */
-    /* from buffer */
-    // resh = UCSR0B;
-
-    // Get distance.
-    distance = UDR0;
-
-    /* Filter the 9th bit, then return */
-    /* resh = (resh >> 1) & 0x01;
-    return ((resh << 8) | resl); */
-    return 1;
 }
 
 void USART_Transmit(unsigned char data)
@@ -99,29 +114,4 @@ void USART_Transmit(unsigned char data)
         ;
     /* Put data into buffer, sends the data */
     UDR0 = data;
-}
-
-void timer_interrupt_init()
-{
-    OCR1A = 2000;          // Initialize the timer to interrupt every 1 ms.
-    TIMSK1 |= 1 << OCIE1A; // Enable interrupts from output compare channel A.
-    TCCR1B |= 1 << WGM12;  // CTC
-    TCCR1B |= 2;           // Start counter with prescaler = 8.
-}
-
-void timer_delay(uint32_t ms)
-{
-    uint32_t ticks = 0;
-
-    TCCR1B |= 2; // Start counter with prescaler = 8.
-    while (ticks < ms)
-    {
-        while (TCNT1 < 1000)
-        {
-        }
-        TCNT1 = 0;
-        ticks++;
-    }
-
-    TCCR1B = 0; // Stop counter.
 }

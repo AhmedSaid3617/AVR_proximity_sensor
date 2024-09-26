@@ -8,5 +8,7 @@ void timer_interrupt_init();
 void USART_Init();
 void USART_Transmit(unsigned char data);
 unsigned int USART_Receive(void);
+void Ultrasonic_init();
+void US_send_pulse();
 
 #endif
