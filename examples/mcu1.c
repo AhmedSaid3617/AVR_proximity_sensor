@@ -108,20 +108,3 @@ void timer_interrupt_init()
     TCCR1B |= 1 << WGM12;  // CTC
     TCCR1B |= 2;           // Start counter with prescaler = 8.
 }
-
-void timer_delay(uint32_t ms)
-{
-    uint32_t ticks = 0;
-
-    TCCR1B |= 2; // Start counter with prescaler = 8.
-    while (ticks < ms)
-    {
-        while (TCNT1 < 1000)
-        {
-        }
-        TCNT1 = 0;
-        ticks++;
-    }
-
-    TCCR1B = 0; // Stop counter.
-}
