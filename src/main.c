@@ -5,6 +5,9 @@
 #include "util/delay.h"
 #include "main.h"
 
+#define LED PB0
+#define BUZZER PC5
+
 uint32_t ticks = 0;
 uint8_t distance = 0xFF;
 
@@ -12,30 +15,41 @@ int main()
 {
     sei();
 
-    /* DDRB |= 0b00100000; // Configuring PB6 as Output
-    DDRB &= ~(1<<0); // Configuring PB0 as Input
-    PORTB |= (1<<0); // Pull up resistor.
-    PORTB |= 0b00100000; */
-
-    DDRB |= 1 << PB0;
+    DDRB |= 1 << LED;
     DDRD |= 1 << PD1;
     DDRD |= 1 << PD0;
-    // PORTB |= 1<<PB0;
+    DDRC |= 1 << BUZZER;
+
     timer_interrupt_init();
     USART_Init();
     while (1)
     {
-
     }
 }
 
 ISR(TIMER1_COMPA_vect)
 {
-    if ((ticks % (distance *10)) == 0)
+    if (distance != 0xFF)
     {
-        PORTB ^= 1;
-        USART_Transmit(distance);
+        if ((ticks % (distance * 10)) == 0)
+        {
+            USART_Transmit(distance);  // TODO: remove.
+            PORTC ^= 1<<BUZZER;
+        }
+
+        if (ticks % 500 == 0)
+        {
+            PORTB ^= 1<<LED;
+        }
+        
     }
+    else
+    {
+        PORTC &= ~(1<<BUZZER);
+        PORTB &= ~(1<<LED);
+    }
+    
+
 
     ticks++;
 }
@@ -89,10 +103,10 @@ void USART_Transmit(unsigned char data)
 
 void timer_interrupt_init()
 {
-    OCR1A = 2000;         // Initialize the timer to interrupt every 1 ms.
+    OCR1A = 2000;          // Initialize the timer to interrupt every 1 ms.
     TIMSK1 |= 1 << OCIE1A; // Enable interrupts from output compare channel A.
     TCCR1B |= 1 << WGM12;  // CTC
-    TCCR1B |= 2; // Start counter with prescaler = 8.
+    TCCR1B |= 2;           // Start counter with prescaler = 8.
 }
 
 void timer_delay(uint32_t ms)
@@ -110,14 +124,4 @@ void timer_delay(uint32_t ms)
     }
 
     TCCR1B = 0; // Stop counter.
-}
-
-void led_on()
-{
-    PORTB |= 1 << 6;
-}
-
-void led_off()
-{
-    PORTB &= ~(1 << 6);
 }
