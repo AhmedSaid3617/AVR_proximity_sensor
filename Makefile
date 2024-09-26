@@ -18,7 +18,7 @@ vpath %.o $(OBJS_DIR)
 
 PROJECT_NAME = avr_test
 CC = avr-
-CFLAGS = -mmcu=atmega328p -g -O0 -fdata-sections -ffunction-sections
+CFLAGS = -g -mmcu=atmega328p -O0 -fdata-sections -ffunction-sections
 INCS = -I $(INC_DIR) -I $(DRIVERS_INC) -I $(UTILS_INC) -I $(EXT_INC)
 LIBS = 
 SRC := $(wildcard *.c) $(wildcard $(SRC_DIR)/*.c) $(wildcard $(DRIVERS_SRC)/*.c) $(wildcard $(UTILS_SRC)/*.c) $(wildcard $(EXT_SRC)/*.c)
@@ -40,7 +40,7 @@ $(OBJS_DIR)/%.o: %.s
 	$(CC)as $< -o $@ 
 
 $(PROJECT_NAME).elf: $(OBJ) $(AsOBJ)
-	$(CC)gcc $(AsOBJ) $(OBJ) -o $@
+	$(CC)gcc $(AsOBJ) $(OBJ) -o $@ -mmcu=atmega328p
 
 $(PROJECT_NAME).bin: $(PROJECT_NAME).elf
 	$(CC)objcopy -O binary $< $@
